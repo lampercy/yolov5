@@ -115,6 +115,6 @@ def attempt_load(weights, map_location=None, inplace=True, fuse=True):
     else:
         print(f'Ensemble created with {weights}\n')
         for k in ['names']:
-            setattr(model, k, getattr(model[-1], k))
+            setattr(model, k, getattr(model[-2], k))
         model.stride = model[torch.argmax(torch.tensor([m.stride.max() for m in model])).int()].stride  # max stride
         return model  # return ensemble
