@@ -40,30 +40,36 @@ class GNN(nn.Module):
         # print(x[4].shape)
         # print(x[0][0].shape) # x, y, x2, y2, score, class
 
-        preds = x[0][0]
-        hw = x[1].shape[-2:] * 8
+        out, train_out = x[0]
         device = x[1].device
-        whwh = torch.tensor((hw[1], hw[0], hw[1], hw[0])).to(device)
+        whwh = (torch.tensor(x[1].shape[-2:]).to(device) * 8)[[1, 0, 1, 0]]
+        result, cells = None, None
 
-        result = None
-        if preds is not None:
-            preds = non_max_suppression(preds, conf_thres=CONF_THRES)
+        if out is not None:
+            preds = non_max_suppression(
+                out, conf_thres=CONF_THRES)
+
             feats = []
             for p in preds:
-                bbox = p[:, :4]
-                f1 = self.roi_align_1(x[1].float(), [bbox])
-                f2 = self.roi_align_2(x[2].float(), [bbox])
-                f3 = self.roi_align_3(x[3].float(), [bbox])
-                f4 = self.roi_align_4(x[4].float(), [bbox])
-                f = torch.cat((f1, f2, f3, f4), dim=1)
-                f = f.reshape(f.shape[0], -1)
-                f = self.conv(f)
-                bbox = bbox / whwh
+                if p.shape[0] > 2:
+                    bbox = p[:, :4]
+                    f1 = self.roi_align_1(x[1].float(), [bbox])
+                    f2 = self.roi_align_2(x[2].float(), [bbox])
+                    f3 = self.roi_align_3(x[3].float(), [bbox])
+                    f4 = self.roi_align_4(x[4].float(), [bbox])
+                    f = torch.cat((f1, f2, f3, f4), dim=1)
+                    f = f.reshape(
+                            f.shape[0], f.shape[1] * f.shape[2] * f.shape[3])
+                    f = self.conv(f)
+                    bbox = bbox / whwh
+                    f = torch.cat((bbox, f), dim=-1)
+                    feats.append(f)
+                else:
+                    feats.append(None)
 
-                f = torch.cat((bbox, f), dim=-1)
-                feats.append(f)
+            result, cells = self.m(feats)
 
-            result = self.m(feats)
+        train_out = (train_out, result, cells)
+        out = (out, result, cells)
 
-        return (x[0][1], result) if self.training else (
-                (x[0][0], result), (x[0][1], result))
+        return train_out if self.training else (out, train_out)

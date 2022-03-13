@@ -177,7 +177,7 @@ def run(data,
     loss = torch.zeros(3, device=device)
     jdict, stats, ap, ap_class = [], [], [], []
     pbar = tqdm(dataloader, desc=s, bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')  # progress bar
-    for batch_i, (im, targets, paths, shapes) in enumerate(pbar):
+    for batch_i, (im, targets, gnn_targets, paths, shapes) in enumerate(pbar):
         t1 = time_sync()
         if pt or jit or engine:
             im = im.to(device, non_blocking=True)
@@ -194,7 +194,7 @@ def run(data,
 
         # Loss
         if compute_loss:
-            loss += compute_loss(train_out, targets)[1]  # box, obj, cls
+            loss += compute_loss(train_out, targets, gnn_targets)[1]  # box, obj, cls
 
         # NMS
         targets[:, 2:] *= torch.Tensor([width, height, width, height]).to(device)  # to pixels

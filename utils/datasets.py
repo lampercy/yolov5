@@ -622,14 +622,28 @@ class LoadImagesAndLabels(Dataset):
         img = img.transpose((2, 0, 1))[::-1]  # HWC to CHW, BGR to RGB
         img = np.ascontiguousarray(img)
 
-        return torch.from_numpy(img), labels_out, self.img_files[index], shapes
+        image_path = self.img_files[index]
+        gnn_label = self.get_gnn_label(image_path)
+        results = torch.from_numpy(img), labels_out, gnn_label, image_path, shapes # imgs, targets, paths
+        return results
+
+    def get_gnn_label(self, image_path):
+        p = Path(image_path)
+        parts = list(p.parts)
+        parts[-3] = 'dgcnn'
+        with Path(*parts).with_suffix('.json').open() as f:
+            data = json.load(f)
+            cells = torch.tensor(data['cells'])
+            classes = torch.tensor(data['classes'])
+
+        return cells, classes
 
     @staticmethod
     def collate_fn(batch):
-        img, label, path, shapes = zip(*batch)  # transposed
+        img, label, gnn_label, path, shapes = zip(*batch)  # transposed
         for i, l in enumerate(label):
             l[:, 0] = i  # add target image index for build_targets()
-        return torch.stack(img, 0), torch.cat(label, 0), path, shapes
+        return torch.stack(img, 0), torch.cat(label, 0), gnn_label, path, shapes
 
     @staticmethod
     def collate_fn4(batch):

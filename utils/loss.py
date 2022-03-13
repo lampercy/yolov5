@@ -114,7 +114,7 @@ class ComputeLoss:
         for k in 'na', 'nc', 'nl', 'anchors':
             setattr(self, k, getattr(det, k))
 
-    def __call__(self, preds, targets):  # predictions, targets, model
+    def __call__(self, preds, targets, gnn_targets):  # predictions, targets, model
         p = preds[0]
         device = targets.device
 
@@ -166,7 +166,14 @@ class ComputeLoss:
         lcls *= self.hyp['cls']
         bs = tobj.shape[0]  # batch size
 
-        return (lbox + lobj + lcls) * bs, torch.cat((lbox, lobj, lcls)).detach()
+        gnn_loss = self.get_gnn_loss(preds[1], preds[2], gnn_targets)
+        return (lbox + lobj + lcls) * bs, torch.cat((lbox, lobj, lcls)).detach(), gnn_loss
+
+    def get_gnn_loss(self, preds, predicted_cells, gnn_targets):
+        for pred, cells, gnn_target in zip(preds, predicted_cells, gnn_targets):
+            cell_label, cls_label = gnn_target
+            if pred is not None:
+                pass
 
     def build_targets(self, p, targets):
         # Build targets for compute_loss(), input targets(image,class,x,y,w,h)

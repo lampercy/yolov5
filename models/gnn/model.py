@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 import torch
 import torch.nn as nn
 from torch import Tensor
@@ -46,8 +46,7 @@ class Model(nn.Module):
 
     def batch_norm_feat(self, feat: List[Tensor]):
         x = torch.cat(feat, 0)
-        # print(x.dtype)
-        # x = self.bn(x)  # (n*b, p)
+        x = self.bn(x)  # (n*b, p)
 
         counter = 0
         results = []
@@ -57,24 +56,39 @@ class Model(nn.Module):
 
         return results
 
-    def predict(self, feat: List[Tensor]):
-        feat = self.batch_norm_feat(feat)
-        feat = [self.get_feature_combination(x) for x in feat]
-        x = torch.cat(feat, 0)
-        x = self.linear(x)
-        return x
+    def _forward(self, feat):
+        feat = [f for f in feat if f is not None]
+        if feat:
+            feat = self.batch_norm_feat(feat)
+            feat = [self.get_feature_combination(x) for x in feat]
+
+            x = torch.cat(feat, 0)  # -> (b*n, p)
+            x = self.linear(x)
+
+            return x
 
     def forward(
         self,
         feat: List[Tensor],
-    ) -> Tuple[Tensor, Tensor]:
-        feat = self.batch_norm_feat(feat)
-        feat = [self.get_feature_combination(x) for x in feat]
+    ) -> List[Tuple[Optional[Tensor], Optional[Tensor]]]:
+        x = self._forward(feat)
 
-        x = torch.cat(feat, 0)  # -> (b*n, p)
-        x = self.linear(x)
+        cursor = 0
+        cells = []
+        preds = []
 
-        return x
+        for f in feat:
+            if f is None or x is None:
+                cells.append(None)
+                preds.append(None)
+            else:
+                length = int(f.shape[0] * (f.shape[0] - 1) / 2)
+                y = x[cursor:cursor + length]
+                cursor += length
+                cells.append(f[:, :4])
+                preds.append(y)
+
+        return preds, cells
 
     def get_closest_cells(self, feat: Tensor):
         n = feat.shape[0]
