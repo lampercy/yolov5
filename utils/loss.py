@@ -8,6 +8,7 @@ import torch.nn as nn
 
 from utils.metrics import bbox_iou
 from utils.torch_utils import is_parallel
+from models.gnn.model import cal_gnn_loss
 
 
 def smooth_BCE(eps=0.1):  # https://github.com/ultralytics/yolov3/issues/238#issuecomment-598028441
@@ -166,14 +167,8 @@ class ComputeLoss:
         lcls *= self.hyp['cls']
         bs = tobj.shape[0]  # batch size
 
-        gnn_loss = self.get_gnn_loss(preds[1], preds[2], gnn_targets)
-        return (lbox + lobj + lcls) * bs, torch.cat((lbox, lobj, lcls)).detach(), gnn_loss
-
-    def get_gnn_loss(self, preds, predicted_cells, gnn_targets):
-        for pred, cells, gnn_target in zip(preds, predicted_cells, gnn_targets):
-            cell_label, cls_label = gnn_target
-            if pred is not None:
-                pass
+        gnn_loss = cal_gnn_loss(preds[1], preds[2], gnn_targets, device)
+        return (lbox + lobj + lcls) * bs, torch.cat((lbox, lobj, lcls)).detach(), gnn_loss.detach()
 
     def build_targets(self, p, targets):
         # Build targets for compute_loss(), input targets(image,class,x,y,w,h)
