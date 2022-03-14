@@ -228,7 +228,7 @@ def cal_gnn_loss(preds, predicted_cells, gnn_targets, device):
 
         result += loss
 
-    return result
+    return result.unsqueeze(-1)
 
 def find_area(cell):
     return F.relu(
