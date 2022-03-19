@@ -30,6 +30,7 @@ from utils.augmentations import Albumentations, augment_hsv, copy_paste, letterb
 from utils.general import (LOGGER, NUM_THREADS, check_dataset, check_requirements, check_yaml, clean_str,
                            segments2boxes, xyn2xy, xywh2xyxy, xywhn2xyxy, xyxy2xywhn)
 from utils.torch_utils import torch_distributed_zero_first
+from models.gnn.data import get_gnn_label
 
 # Parameters
 HELP_URL = 'https://github.com/ultralytics/yolov5/wiki/Train-Custom-Data'
@@ -623,20 +624,9 @@ class LoadImagesAndLabels(Dataset):
         img = np.ascontiguousarray(img)
 
         image_path = self.img_files[index]
-        gnn_label = self.get_gnn_label(image_path)
+        gnn_label = get_gnn_label(image_path)
         results = torch.from_numpy(img), labels_out, gnn_label, image_path, shapes # imgs, targets, paths
         return results
-
-    def get_gnn_label(self, image_path):
-        p = Path(image_path)
-        parts = list(p.parts)
-        parts[-3] = 'dgcnn'
-        with Path(*parts).with_suffix('.json').open() as f:
-            data = json.load(f)
-            cells = torch.tensor(data['cells'])
-            classes = torch.tensor(data['classes'])
-
-        return cells, classes
 
     @staticmethod
     def collate_fn(batch):

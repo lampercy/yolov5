@@ -6,7 +6,7 @@ from torchvision.ops import RoIAlign
 from .model import Model
 
 CONF_THRES = 0.596
-
+CELL_SIZE_LIMIT = 200
 
 conv_output_size = 64
 
@@ -52,6 +52,8 @@ class GNN(nn.Module):
             feats = []
             for p in preds:
                 if p.shape[0] > 2:
+                    p = p[p[..., 4].sort(
+                        dim=-1, descending=True).indices][:CELL_SIZE_LIMIT, ...]
                     bbox = p[:, :4]
                     f1 = self.roi_align_1(x[1].float(), [bbox])
                     f2 = self.roi_align_2(x[2].float(), [bbox])

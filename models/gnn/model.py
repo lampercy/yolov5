@@ -67,12 +67,12 @@ class Model(nn.Module):
         feat = [f for f in feat if f is not None]
         if feat:
             feat = self.batch_norm_feat(feat)
-            feat = [self.get_feature_combination(x) for x in feat]
+            feat = [self.get_feature_combination(x.half()) for x in feat]
 
-            x = torch.cat(feat, 0)  # -> (b*n, p)
-            x = self.linear(x)
+            feat = torch.cat(feat, 0)  # -> (b*n, p)
+            feat = self.linear(feat)
 
-            return x
+            return feat
 
     def forward(
         self,
@@ -133,17 +133,14 @@ class Model(nn.Module):
 
         return torch.cat((edge1, edge2), -1)
 
-    def get_feature_combination(self, feat: Tensor):
-        x = feat
-        device = feat.device
-        edge = self.extract_edge_feature(feat)
-        x = torch.cat((x, edge), -1)
+    def get_feature_combination(self, x: Tensor):
+        device = x.device
+        x = torch.cat((x, self.extract_edge_feature(x)), -1)
         n = x.shape[0]
 
         x = x.unsqueeze(1)  # (n, p) -> (n, 1, p)
         x = x.expand(-1, n, -1)  # (n, 1, p) -> (n, n, p)
-        t = x.transpose(0, 1)  # (n, n, p) -> (n, n, p)
-        x = torch.cat((x, t), -1)
+        x = torch.cat((x, x.transpose(0, 1)), -1)
 
         p = x.shape[2]
 
@@ -229,6 +226,7 @@ def cal_gnn_loss(preds, predicted_cells, gnn_targets, device):
         result += loss
 
     return result.unsqueeze(-1)
+
 
 def find_area(cell):
     return F.relu(
