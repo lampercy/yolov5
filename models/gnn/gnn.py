@@ -47,7 +47,7 @@ class GNN(nn.Module):
 
         if out is not None:
             preds = non_max_suppression(
-                out, conf_thres=CONF_THRES)
+                out.detach(), conf_thres=CONF_THRES)
 
             feats = []
             for p in preds:
