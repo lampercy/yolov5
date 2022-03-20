@@ -61,7 +61,7 @@ class Model(nn.Module):
         feat = [f for f in feat if f is not None]
         if feat:
             feat = self.batch_norm_feat(feat)
-            feat = [self.get_feature_combination(x.half()) for x in feat]
+            feat = [self.get_feature_combination(x) for x in feat]
 
             feat = torch.cat(feat, 0)  # -> (b*n, p)
             feat = self.linear(feat)

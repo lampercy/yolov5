@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import torch.nn as nn
 
 
-IOU_THRES = 0.1
+IOU_THRES = 0.6
 
 
 def cal_gnn_loss(preds, predicted_cells, gnn_targets, device):

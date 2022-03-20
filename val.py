@@ -44,6 +44,7 @@ from utils.general import (LOGGER, box_iou, check_dataset, check_img_size, check
 from utils.metrics import ConfusionMatrix, ap_per_class
 from utils.plots import output_to_target, plot_images, plot_val_study
 from utils.torch_utils import select_device, time_sync
+from models.gnn.val import get_confusion_matrix
 
 
 def save_one_txt(predn, save_conf, shape, file):
@@ -190,6 +191,8 @@ def run(data,
 
         # Inference
         out, train_out = model(im) if training else model(im, augment=augment, val=True)  # inference, loss outputs
+        gnn_pred = out[1]
+        gnn_cells = out[2]
         dt[1] += time_sync() - t2
 
         # Loss
@@ -240,6 +243,8 @@ def run(data,
             if save_json:
                 save_one_json(predn, jdict, path, class_map)  # append to COCO-JSON dictionary
             callbacks.run('on_val_image_end', pred, predn, path, names, im[si])
+
+        get_confusion_matrix(gnn_pred, gnn_cells, gnn_targets)
 
         # Plot images
         if plots and batch_i < 3:
