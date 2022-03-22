@@ -6,6 +6,7 @@ import torch.nn as nn
 
 
 IOU_THRES = 0.6
+NUM_OF_CLASS = 2
 
 
 def cal_gnn_loss(preds, predicted_cells, gnn_targets, device):
@@ -43,11 +44,16 @@ def cal_loss_by_cls(
     y = filter_tri_matrix_by_indices(
         label_indices, cls_label, device)
 
-    loss_by_cls = loss(x, y)
-    return (
-        torch.tensor(1).to(device) *
-        (cls_label_count - loss_by_cls.shape[-1]) +
-        loss_by_cls.sum() / 2) / cls_label_count
+    pred_count = x.shape[0]
+    remaining_count = cls_label_count - pred_count
+
+    loss_by_cls = loss(x, y).sum() / NUM_OF_CLASS
+
+    remaining_loss = torch.tensor(1).to(device) \
+        * remaining_count
+
+    result = (loss_by_cls + remaining_loss) / cls_label_count
+    return result
 
 
 def filter_tri_matrix_by_indices(x, matrix, device):
