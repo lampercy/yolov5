@@ -301,7 +301,7 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
         if RANK in [-1, 0]:
             pbar = tqdm(pbar, total=nb, bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')  # progress bar
         optimizer.zero_grad()
-        for i, (imgs, targets, gnn_targets, paths, _) in pbar:  # batch -------------------------------------------------------------
+        for i, (imgs, targets, gnn_targets, paths, shapes) in pbar:  # batch -------------------------------------------------------------
             ni = i + nb * epoch  # number integrated batches (since train start)
             imgs = imgs.to(device, non_blocking=True).float() / 255  # uint8 to float32, 0-255 to 0.0-1.0
 
@@ -326,7 +326,7 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
 
             # Forward
             with amp.autocast(enabled=cuda):
-                pred = model(imgs)  # forward
+                pred = model(imgs, shapes)  # forward
                 loss, loss_items, gnn_loss = compute_loss(pred, targets.to(device), gnn_targets)  # loss scaled by batch_size
                 loss = loss + gnn_loss
                 if RANK != -1:

@@ -24,6 +24,7 @@ import os
 import sys
 from pathlib import Path
 from threading import Thread
+from collections import defaultdict
 
 import numpy as np
 import torch
@@ -44,7 +45,7 @@ from utils.general import (LOGGER, box_iou, check_dataset, check_img_size, check
 from utils.metrics import ConfusionMatrix, ap_per_class
 from utils.plots import output_to_target, plot_images, plot_val_study
 from utils.torch_utils import select_device, time_sync
-from models.gnn.val import get_confusion_matrix
+from models.gnn.val import get_confusion_matrix, compute_confusion_matrix_scores
 
 
 def save_one_txt(predn, save_conf, shape, file):
@@ -178,6 +179,9 @@ def run(data,
     loss = torch.zeros(4, device=device)
     jdict, stats, ap, ap_class = [], [], [], []
     pbar = tqdm(dataloader, desc=s, bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')  # progress bar
+
+    confusion_matrix_gnn = defaultdict(lambda: defaultdict(float))
+
     for batch_i, (im, targets, gnn_targets, paths, shapes) in enumerate(pbar):
         t1 = time_sync()
         if pt or jit or engine:
@@ -190,7 +194,7 @@ def run(data,
         dt[0] += t2 - t1
 
         # Inference
-        out, train_out = model(im) if training else model(im, augment=augment, val=True)  # inference, loss outputs
+        out, train_out = model(im, shapes) if training else model(im, shapes, augment=augment, val=True)  # inference, loss outputs
         gnn_pred = out[1]
         gnn_cells = out[2]
         dt[1] += time_sync() - t2
@@ -244,7 +248,8 @@ def run(data,
                 save_one_json(predn, jdict, path, class_map)  # append to COCO-JSON dictionary
             callbacks.run('on_val_image_end', pred, predn, path, names, im[si])
 
-        get_confusion_matrix(gnn_pred, gnn_cells, gnn_targets)
+        confusion_matrix_gnn = get_confusion_matrix(
+            gnn_pred, gnn_cells, gnn_targets, confusion_matrix_gnn)
 
         # Plot images
         if plots and batch_i < 3:
@@ -252,6 +257,8 @@ def run(data,
             Thread(target=plot_images, args=(im, targets, paths, f, names), daemon=True).start()
             f = save_dir / f'val_batch{batch_i}_pred.jpg'  # predictions
             Thread(target=plot_images, args=(im, output_to_target(out), paths, f, names), daemon=True).start()
+
+    print(compute_confusion_matrix_scores(confusion_matrix_gnn))
 
     # Compute metrics
     stats = [np.concatenate(x, 0) for x in zip(*stats)]  # to numpy

@@ -1,16 +1,54 @@
 import statistics
 from collections import defaultdict
+from models.gnn.loss import (
+    match_predicted_cells_with_targets,
+    filter_tri_matrix_by_indices,
+)
 
 import torch
 
 NUM_OF_CLASS = 2
 
 
-def get_confusion_matrix(preds, predicted_cells, gnn_targets):
+def get_confusion_matrix(
+        preds, predicted_cells, gnn_targets, confusion_matrix):
+
+    device = [p for p in preds if p is not None][0].device
+
     for pred, cells, gnn_target in zip(preds, predicted_cells, gnn_targets):
-        print(pred.shape)
-        print(cells.shape)
-        print(gnn_target.shape)
+        cell_label, cls_label = gnn_target
+        cell_label = cell_label.to(device)
+        cls_label_count = cls_label.shape[0]
+
+        if pred is not None:
+            cls_label = torch.stack(
+                (cls_label == 1, cls_label == 2), dim=-1).float().to(device)
+
+            cell_indices, label_indices = match_predicted_cells_with_targets(
+                cells, cell_label, device
+            )
+
+            if cell_indices.shape[0] > 1 and label_indices.shape[0] > 1:
+                x = filter_tri_matrix_by_indices(
+                    cell_indices, pred, device)
+
+                y = filter_tri_matrix_by_indices(
+                    label_indices, cls_label, device)
+
+                for cls in range(NUM_OF_CLASS):
+                    TP, TN, FP, FN = get_confusion_matrix_by_cls(
+                        x.sigmoid(), y, cls)
+                    FN += cls_label_count - x.shape[0]
+
+                    for score, name in zip(
+                            [TP, TN, FP, FN], ['TP', 'TN', 'FP', 'FN']):
+                        confusion_matrix[cls][name] += score
+
+        else:
+            for cls in range(NUM_OF_CLASS):
+                confusion_matrix[cls]['FN'] += cls_label_count
+
+    return confusion_matrix
 
 
 def get_confusion_matrix_by_cls(pred, truth, cls):
@@ -31,7 +69,7 @@ def get_confusion_matrix_by_cls(pred, truth, cls):
     return [x.item() for x in [TP, TN, FP, FN]]
 
 
-def compute_scores(confusion_matrix):
+def compute_confusion_matrix_scores(confusion_matrix):
     result = {}
     scores = defaultdict(list)
 

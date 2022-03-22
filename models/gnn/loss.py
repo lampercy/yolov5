@@ -64,7 +64,7 @@ def filter_tri_matrix_by_indices(x, matrix, device):
 
     result = torch.stack(
         [convert_index(i, j) for i, j in combinations(x, 2)],
-        dim=-1,
+        dim=0,
     )
 
     return result

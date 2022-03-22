@@ -3,9 +3,11 @@ import torch.nn as nn
 from utils.general import non_max_suppression
 from torchvision.ops import RoIAlign
 
+from utils.general import scale_coords
+
 from .model import Model
 
-CONF_THRES = 0.001
+CONF_THRES = 0.1
 CELL_SIZE_LIMIT = 200
 IOU_THRES = 0.6
 
@@ -34,7 +36,7 @@ class GNN(nn.Module):
 
         self.m = Model()
 
-    def forward(self, x):
+    def forward(self, x, shapes):
         # print(x[1].shape)  # batch, ch, h, w
         # print(x[2].shape)
         # print(x[3].shape)
@@ -42,18 +44,25 @@ class GNN(nn.Module):
         # print(x[0][0].shape) # x, y, x2, y2, score, class
 
         out, train_out = x[0]
+
         device = x[1].device
-        whwh = (torch.tensor(x[1].shape[-2:]).to(device) * 8)[[1, 0, 1, 0]]
+
+        hw = (torch.tensor(x[1].shape[-2:]).to(device) * 8)[[0, 1]]
         result, cells = None, None
 
         if out is not None:
             preds = non_max_suppression(
-                out.detach(), conf_thres=CONF_THRES, iou_thres=IOU_THRES)
+                out.detach(),
+                conf_thres=CONF_THRES,
+                iou_thres=IOU_THRES,
+                multi_label=True,
+                agnostic=False,
+            )
 
             feats = []
-            for p in preds:
+            for i, p in enumerate(preds):
                 if p.shape[0] > 2:
-                    bbox = p[:, :4]
+                    bbox = p[:, :4].clone()
                     f1 = self.roi_align_1(x[1].float(), [bbox])
                     f2 = self.roi_align_2(x[2].float(), [bbox])
                     f3 = self.roi_align_3(x[3].float(), [bbox])
@@ -62,7 +71,14 @@ class GNN(nn.Module):
                     f = f.reshape(
                             f.shape[0], f.shape[1] * f.shape[2] * f.shape[3])
                     f = self.conv(f)
-                    bbox = bbox / whwh
+
+                    if shapes is not None:
+                        scale_coords(
+                            hw, bbox, shapes[i][0], shapes[i][1])
+
+                        bbox = bbox / torch.tensor(
+                            shapes[i][0]).to(device)[[1, 0, 1, 0]]
+
                     f = torch.cat((bbox, f), dim=-1)
                     feats.append(f)
                 else:
