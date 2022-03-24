@@ -16,7 +16,7 @@ conv_output_size = 2
 
 class GNN(nn.Module):
 
-    def __init__(self, cell_cls):
+    def __init__(self):
         super().__init__()
         self.roi_align_1 = RoIAlign(
             (1), spatial_scale=1 / 8, sampling_ratio=-1)
