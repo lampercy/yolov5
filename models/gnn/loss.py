@@ -12,25 +12,29 @@ NUM_OF_CLASS = 2
 def cal_gnn_loss(preds, predicted_cells, gnn_targets, device):
     result = torch.tensor(0, dtype=torch.float).to(device)
 
-    for pred, cells, gnn_target in zip(preds, predicted_cells, gnn_targets):
-        cell_label, cls_label = gnn_target
-        cls_label_count = cls_label.shape[0]
-        loss = torch.tensor(1).to(device)
-        if pred is not None:
-            cell_label = cell_label.to(device)
-            cls_label = torch.stack(
-                (cls_label == 1, cls_label == 2), dim=-1).float().to(device)
+    if preds is not None:
+        for pred, cells, gnn_target in zip(
+                preds, predicted_cells, gnn_targets):
+            cell_label, cls_label = gnn_target
+            cls_label_count = cls_label.shape[0]
+            loss = torch.tensor(1).to(device)
+            if pred is not None:
+                cell_label = cell_label.to(device)
+                cls_label = torch.stack(
+                    (cls_label == 1, cls_label == 2), dim=-1
+                ).float().to(device)
 
-            cell_indices, label_indices = match_predicted_cells_with_targets(
-                cells, cell_label, device
-            )
+                cell_indices, label_indices = \
+                    match_predicted_cells_with_targets(
+                        cells, cell_label, device
+                    )
 
-            if cell_indices.shape[0] > 1 and label_indices.shape[0] > 1:
-                loss = cal_loss_by_cls(
-                    cell_indices, label_indices,
-                    cls_label, pred, device, cls_label_count)
+                if cell_indices.shape[0] > 1 and label_indices.shape[0] > 1:
+                    loss = cal_loss_by_cls(
+                        cell_indices, label_indices,
+                        cls_label, pred, device, cls_label_count)
 
-        result += loss
+            result += loss
 
     return result.unsqueeze(-1)
 

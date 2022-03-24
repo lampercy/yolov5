@@ -48,6 +48,17 @@ class Detect(nn.Module):
         self.inplace = inplace  # use in-place ops (e.g. slice assignment)
 
     def forward(self, x):
+        x = self._forward(x)
+        out, train_out = x
+
+        result, cells = None, None
+
+        train_out = (train_out, result, cells)
+        out = (out, result, cells)
+
+        return train_out if self.training else (out, train_out)
+
+    def _forward(self, x):
         z = []  # inference output
         for i in range(self.nl):
             x[i] = self.m[i](x[i])  # conv
@@ -106,10 +117,11 @@ class Model(nn.Module):
         self.inplace = self.yaml.get('inplace', True)
 
         # Build strides, anchors
-        m = self.model[-2]  # Detect()
+        m = self.model[-1]  # Detect()
         if isinstance(m, Detect):
             s = 256  # 2x min stride
             m.inplace = self.inplace
+            print(113, self.training)
             m.stride = torch.tensor([s / x.shape[-2] for x in self.forward(torch.zeros(1, ch, s, s))[0]])  # forward
             m.anchors /= m.stride.view(-1, 1, 1)
             check_anchor_order(m)
@@ -175,10 +187,10 @@ class Model(nn.Module):
 
     def _clip_augmented(self, y):
         # Clip YOLOv5 augmented inference tails
-        nl = self.model[-2].nl  # number of detection layers (P3-P5)
+        nl = self.model[-1].nl  # number of detection layers (P3-P5)
         g = sum(4 ** x for x in range(nl))  # grid points
         e = 1  # exclude layer count
-        i = (y[0].shape[1] // g) * sum(4 ** x for x in range(e))  # indices
+        i = (y[0].shape[1] // g) * sum(4 ** x for x in range(e))  # indicesmodels/yolo.py
         y[0] = y[0][:, :-i]  # large
         i = (y[-1].shape[1] // g) * sum(4 ** (nl - 1 - x) for x in range(e))  # indices
         y[-1] = y[-1][:, i:]  # small
@@ -200,7 +212,7 @@ class Model(nn.Module):
     def _initialize_biases(self, cf=None):  # initialize biases into Detect(), cf is class frequency
         # https://arxiv.org/abs/1708.02002 section 3.3
         # cf = torch.bincount(torch.tensor(np.concatenate(dataset.labels, 0)[:, 0]).long(), minlength=nc) + 1.
-        m = self.model[-2]  # Detect() module
+        m = self.model[-1]  # Detect() module
         for mi, s in zip(m.m, m.stride):  # from
             b = mi.bias.view(m.na, -1)  # conv.bias(255) to (3,85)
             b.data[:, 4] += math.log(8 / (640 / s) ** 2)  # obj (8 objects per 640 image)
@@ -208,7 +220,7 @@ class Model(nn.Module):
             mi.bias = torch.nn.Parameter(b.view(-1), requires_grad=True)
 
     def _print_biases(self):
-        m = self.model[-2]  # Detect() module
+        m = self.model[-1]  # Detect() module
         for mi in m.m:  # from
             b = mi.bias.detach().view(m.na, -1).T  # conv.bias(255) to (3,85)
             LOGGER.info(
@@ -235,7 +247,7 @@ class Model(nn.Module):
     def _apply(self, fn):
         # Apply to(), cpu(), cuda(), half() to model tensors that are not parameters or registered buffers
         self = super()._apply(fn)
-        m = self.model[-2]  # Detect()
+        m = self.model[-1]  # Detect()
         if isinstance(m, Detect):
             m.stride = fn(m.stride)
             m.grid = list(map(fn, m.grid))

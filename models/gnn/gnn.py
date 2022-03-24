@@ -45,46 +45,46 @@ class GNN(nn.Module):
 
         out, train_out = x[0]
 
-        device = x[1].device
+        # device = x[1].device
 
-        hw = (torch.tensor(x[1].shape[-2:]).to(device) * 8)[[0, 1]]
+        # hw = (torch.tensor(x[1].shape[-2:]).to(device) * 8)[[0, 1]]
         result, cells = None, None
 
-        if out is not None:
-            preds = non_max_suppression(
-                out.detach(),
-                conf_thres=CONF_THRES,
-                iou_thres=IOU_THRES,
-                multi_label=True,
-                agnostic=False,
-            )
+        # if out is not None and Fals:
+        #     preds = non_max_suppression(
+        #         out.detach(),
+        #         conf_thres=CONF_THRES,
+        #         iou_thres=IOU_THRES,
+        #         multi_label=True,
+        #         agnostic=False,
+        #     )
 
-            feats = []
-            for i, p in enumerate(preds):
-                if p.shape[0] > 2:
-                    bbox = p[:, :4].clone()
-                    f1 = self.roi_align_1(x[1].float(), [bbox])
-                    f2 = self.roi_align_2(x[2].float(), [bbox])
-                    f3 = self.roi_align_3(x[3].float(), [bbox])
-                    f4 = self.roi_align_4(x[4].float(), [bbox])
-                    f = torch.cat((f1, f2, f3, f4), dim=1)
-                    f = f.reshape(
-                            f.shape[0], f.shape[1] * f.shape[2] * f.shape[3])
-                    f = self.conv(f)
+        #     feats = []
+        #     for i, p in enumerate(preds):
+        #         if p.shape[0] > 2:
+        #             bbox = p[:, :4].clone()
+        #             f1 = self.roi_align_1(x[1].float(), [bbox])
+        #             f2 = self.roi_align_2(x[2].float(), [bbox])
+        #             f3 = self.roi_align_3(x[3].float(), [bbox])
+        #             f4 = self.roi_align_4(x[4].float(), [bbox])
+        #             f = torch.cat((f1, f2, f3, f4), dim=1)
+        #             f = f.reshape(
+        #                     f.shape[0], f.shape[1] * f.shape[2] * f.shape[3])
+        #             f = self.conv(f)
 
-                    if shapes is not None:
-                        scale_coords(
-                            hw, bbox, shapes[i][0], shapes[i][1])
+        #             if shapes is not None:
+        #                 scale_coords(
+        #                     hw, bbox, shapes[i][0], shapes[i][1])
 
-                        bbox = bbox / torch.tensor(
-                            shapes[i][0]).to(device)[[1, 0, 1, 0]]
+        #                 bbox = bbox / torch.tensor(
+        #                     shapes[i][0]).to(device)[[1, 0, 1, 0]]
 
-                    f = torch.cat((bbox, f), dim=-1)
-                    feats.append(f)
-                else:
-                    feats.append(None)
+        #             f = torch.cat((bbox, f), dim=-1)
+        #             feats.append(f)
+        #         else:
+        #             feats.append(None)
 
-            result, cells = self.m(feats)
+        #     result, cells = self.m(feats)
 
         train_out = (train_out, result, cells)
         out = (out, result, cells)

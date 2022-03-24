@@ -482,7 +482,7 @@ class AutoShape(nn.Module):
         # Apply to(), cpu(), cuda(), half() to model tensors that are not parameters or registered buffers
         self = super()._apply(fn)
         if self.pt:
-            m = self.model.model.model[-2] if self.dmb else self.model.model[-2]  # Detect()
+            m = self.model.model.model[-1] if self.dmb else self.model.model[-1]  # Detect()
             m.stride = fn(m.stride)
             m.grid = list(map(fn, m.grid))
             if isinstance(m.anchor_grid, list):

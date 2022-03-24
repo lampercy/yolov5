@@ -157,7 +157,7 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
 
     g0, g1, g2 = [], [], []  # optimizer parameter groups
 
-    capture = False
+    capture = True
     for v in model.modules():
         if hasattr(v, 'bias') and isinstance(v.bias, nn.Parameter):  # bias
             if capture:
@@ -173,12 +173,12 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
                 capture = True
 
     optimizer = optim.AdaBound(
-        params=g2,
+        params=g0,
         lr=0.001,
         final_lr=0.001 / 10,
     )
 
-    optimizer.add_param_group({'params': g1, 'weight_decay': hyp['weight_decay']})  # add g1 with weight_decay
+    # optimizer.add_param_group({'params': g1, 'weight_decay': hyp['weight_decay']})  # add g1 with weight_decay
 
     # if opt.optimizer == 'Adam':
     #     optimizer = Adam(g0, lr=hyp['lr0'], betas=(hyp['momentum'], 0.999))  # adjust beta1 to momentum
@@ -187,8 +187,8 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
     # else:
     #     optimizer = SGD(g2, lr=hyp['lr0'], momentum=hyp['momentum'], nesterov=True)
 
-    # optimizer.add_param_group({'params': g1, 'weight_decay': hyp['weight_decay']})  # add g1 with weight_decay
-    # optimizer.add_param_group({'params': g2})  # add g2 (biases)
+    optimizer.add_param_group({'params': g1, 'weight_decay': hyp['weight_decay']})  # add g1 with weight_decay
+    optimizer.add_param_group({'params': g2})  # add g2 (biases)
 
     LOGGER.info(f"{colorstr('optimizer:')} {type(optimizer).__name__} with parameter groups "
                 f"{len(g0)} weight, {len(g1)} weight (no decay), {len(g2)} bias")
@@ -274,7 +274,7 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
         model = DDP(model, device_ids=[LOCAL_RANK], output_device=LOCAL_RANK)
 
     # Model attributes
-    nl = de_parallel(model).model[-2].nl  # number of detection layers (to scale hyps)
+    nl = de_parallel(model).model[-1].nl  # number of detection layers (to scale hyps)
     hyp['box'] *= 3 / nl  # scale to layers
     hyp['cls'] *= nc / 80 * 3 / nl  # scale to classes and layers
     hyp['obj'] *= (imgsz / 640) ** 2 * 3 / nl  # scale to image size and layers
