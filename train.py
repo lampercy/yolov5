@@ -177,7 +177,7 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
     elif opt.optimizer == 'AdamW':
         optimizer = AdamW(g0, lr=hyp['lr0'], betas=(hyp['momentum'], 0.999))  # adjust beta1 to momentum
     else:
-        optimizer = SGD(g2, lr=hyp['lr0'], momentum=hyp['momentum'], nesterov=True)
+        optimizer = SGD(g0, lr=hyp['lr0'], momentum=hyp['momentum'], nesterov=True)
 
     optimizer.add_param_group({'params': g1, 'weight_decay': hyp['weight_decay']})  # add g1 with weight_decay
     optimizer.add_param_group({'params': g2})  # add g2 (biases)
@@ -339,8 +339,7 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
             # Forward
             with amp.autocast(enabled=cuda):
                 pred = model(imgs, shapes)  # forward
-                loss, loss_items, gnn_loss = compute_loss(pred, targets.to(device), gnn_targets)  # loss scaled by batch_size
-                loss = loss + gnn_loss
+                loss, loss_items = compute_loss(pred, targets.to(device), gnn_targets)  # loss scaled by batch_size
                 if RANK != -1:
                     loss *= WORLD_SIZE  # gradient averaged between devices in DDP mode
                 if opt.quad:

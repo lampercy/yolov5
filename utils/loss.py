@@ -168,7 +168,7 @@ class ComputeLoss:
         bs = tobj.shape[0]  # batch size
 
         gnn_loss = cal_gnn_loss(preds[1], preds[2], gnn_targets, device)
-        return (lbox + lobj + lcls) * bs, torch.cat((lbox, lobj, lcls, gnn_loss)).detach(), gnn_loss
+        return (lbox + lobj + lcls + gnn_loss) * bs, torch.cat((lbox, lobj, lcls, gnn_loss)).detach()
 
     def build_targets(self, p, targets):
         # Build targets for compute_loss(), input targets(image,class,x,y,w,h)
