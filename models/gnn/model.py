@@ -7,7 +7,7 @@ from torch import Tensor
 NUM_OF_CLASS = 2
 NEAREST_K = 8
 
-input_size = 64 + 4
+input_size = 2 + 4
 edge_output_size = 32
 feature_size = input_size * 2 + edge_output_size * 4
 linear_embedding = 32

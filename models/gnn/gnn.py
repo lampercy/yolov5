@@ -7,11 +7,11 @@ from utils.general import scale_coords
 
 from .model import Model
 
-CONF_THRES = 0.1
+CONF_THRES = 0.25
 CELL_SIZE_LIMIT = 200
-IOU_THRES = 0.6
+IOU_THRES = 0.45
 
-conv_output_size = 64
+conv_output_size = 2
 
 
 class GNN(nn.Module):

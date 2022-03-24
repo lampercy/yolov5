@@ -13,6 +13,9 @@ NUM_OF_CLASS = 2
 def get_confusion_matrix(
         preds, predicted_cells, gnn_targets, confusion_matrix):
 
+    if not [p for p in preds if p is not None]:
+        return confusion_matrix
+
     device = [p for p in preds if p is not None][0].device
 
     for pred, cells, gnn_target in zip(preds, predicted_cells, gnn_targets):

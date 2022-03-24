@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import torch.nn as nn
 
 
-IOU_THRES = 0.6
+IOU_THRES = 0.3
 NUM_OF_CLASS = 2
 
 
