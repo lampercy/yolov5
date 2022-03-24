@@ -52,7 +52,7 @@ class GNN(nn.Module):
 
         if out is not None:
             preds = non_max_suppression(
-                out.detach(),
+                out,
                 conf_thres=CONF_THRES,
                 iou_thres=IOU_THRES,
                 multi_label=True,

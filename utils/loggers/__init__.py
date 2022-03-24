@@ -46,7 +46,7 @@ class Loggers():
         self.keys = ['train/box_loss', 'train/obj_loss', 'train/cls_loss', 'train/gnn_loss',  # train loss
                      'metrics/precision', 'metrics/recall', 'metrics/mAP_0.5', 'metrics/mAP_0.5:0.95',  # metrics
                      'val/box_loss', 'val/obj_loss', 'val/cls_loss', 'val/gnn_loss',  # val loss
-                     'x/lr0', 'x/lr1']  # params
+                     'x/lr0', 'x/lr1', 'x/lr2']  # params
         self.best_keys = ['best/epoch', 'best/precision', 'best/recall', 'best/mAP_0.5', 'best/mAP_0.5:0.95',]
         for k in LOGGERS:
             setattr(self, k, None)  # init empty logger dictionary

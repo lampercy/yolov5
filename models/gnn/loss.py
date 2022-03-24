@@ -5,12 +5,12 @@ import torch.nn.functional as F
 import torch.nn as nn
 
 
-IOU_THRES = 0.3
+IOU_THRES = 0.6
 NUM_OF_CLASS = 2
 
 
 def cal_gnn_loss(preds, predicted_cells, gnn_targets, device):
-    result = torch.tensor(0, dtype=torch.float).to(device)
+    result = torch.tensor(0, dtype=torch.float, requires_grad=True).to(device)
 
     for pred, cells, gnn_target in zip(preds, predicted_cells, gnn_targets):
         cell_label, cls_label = gnn_target

@@ -158,38 +158,29 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
 
     g0, g1, g2 = [], [], []  # optimizer parameter groups
 
-    capture = False
     for v in model.modules():
         if hasattr(v, 'bias') and isinstance(v.bias, nn.Parameter):  # bias
-            if capture:
-                g2.append(v.bias)
+            g2.append(v.bias)
         if isinstance(v, nn.BatchNorm2d):  # weight (no decay)
-            if capture:
-                g0.append(v.weight)
+            g0.append(v.weight)
         elif hasattr(v, 'weight') and isinstance(v.weight, nn.Parameter):  # weight (with decay)
-            if capture:
-                g1.append(v.weight)
-        else:
-            if type(v).__name__ == 'GNN':
-                capture = True
+            g1.append(v.weight)
 
-    optimizer = optim.AdaBound(
-        params=g2,
-        lr=0.001,
-        final_lr=0.001 / 10,
-    )
+    if opt.optimizer == 'AdaBound':
+        optimizer = optim.AdaBound(
+            params=g0,
+            lr=hyp['lr0'],
+            final_lr=hyp['lr0'] * hyp['lrf'],
+        )
+    elif opt.optimizer == 'Adam':
+        optimizer = Adam(g0, lr=hyp['lr0'], betas=(hyp['momentum'], 0.999))  # adjust beta1 to momentum
+    elif opt.optimizer == 'AdamW':
+        optimizer = AdamW(g0, lr=hyp['lr0'], betas=(hyp['momentum'], 0.999))  # adjust beta1 to momentum
+    else:
+        optimizer = SGD(g2, lr=hyp['lr0'], momentum=hyp['momentum'], nesterov=True)
 
     optimizer.add_param_group({'params': g1, 'weight_decay': hyp['weight_decay']})  # add g1 with weight_decay
-
-    # if opt.optimizer == 'Adam':
-    #     optimizer = Adam(g0, lr=hyp['lr0'], betas=(hyp['momentum'], 0.999))  # adjust beta1 to momentum
-    # elif opt.optimizer == 'AdamW':
-    #     optimizer = AdamW(g0, lr=hyp['lr0'], betas=(hyp['momentum'], 0.999))  # adjust beta1 to momentum
-    # else:
-    #     optimizer = SGD(g2, lr=hyp['lr0'], momentum=hyp['momentum'], nesterov=True)
-
-    # optimizer.add_param_group({'params': g1, 'weight_decay': hyp['weight_decay']})  # add g1 with weight_decay
-    # optimizer.add_param_group({'params': g2})  # add g2 (biases)
+    optimizer.add_param_group({'params': g2})  # add g2 (biases)
 
     LOGGER.info(f"{colorstr('optimizer:')} {type(optimizer).__name__} with parameter groups "
                 f"{len(g0)} weight, {len(g1)} weight (no decay), {len(g2)} bias")
@@ -293,7 +284,7 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
     maps = np.zeros(nc)  # mAP per class
     results = (0, 0, 0, 0, 0, 0, 0)  # P, R, mAP@.5, mAP@.5-.95, val_loss(box, obj, cls)
     scheduler.last_epoch = start_epoch - 1  # do not move
-    # scaler = amp.GradScaler(enabled=cuda)
+    scaler = amp.GradScaler(enabled=cuda)
     stopper = EarlyStopping(patience=opt.patience)
     compute_loss = ComputeLoss(model)  # init loss class
     LOGGER.info(f'Image sizes {imgsz} train, {imgsz} val\n'
@@ -321,8 +312,8 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
         if RANK in [-1, 0]:
             pbar = tqdm(pbar, total=nb, bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')  # progress bar
 
+        optimizer.zero_grad()
         for i, (imgs, targets, gnn_targets, paths, shapes) in pbar:  # batch -------------------------------------------------------------
-            optimizer.zero_grad()
             ni = i + nb * epoch  # number integrated batches (since train start)
             imgs = imgs.to(device, non_blocking=True).float() / 255  # uint8 to float32, 0-255 to 0.0-1.0
 
@@ -356,18 +347,16 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
                     loss *= 4.
 
             # Backward
-            loss.backward()
-            optimizer.step()
-            # scaler.scale(loss).backward()
+            scaler.scale(loss).backward()
 
             # Optimize
-            # if ni - last_opt_step >= accumulate:
-            #     scaler.step(optimizer)  # optimizer.step
-            #     scaler.update()
-            #     optimizer.zero_grad()
-            #     if ema:
-            #         ema.update(model)
-            #     last_opt_step = ni
+            if ni - last_opt_step >= accumulate:
+                scaler.step(optimizer)  # optimizer.step
+                scaler.update()
+                optimizer.zero_grad()
+                if ema:
+                    ema.update(model)
+                last_opt_step = ni
 
             # Log
             if RANK in [-1, 0]:
@@ -493,7 +482,7 @@ def parse_opt(known=False):
     parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--multi-scale', action='store_true', help='vary img-size +/- 50%%')
     parser.add_argument('--single-cls', action='store_true', help='train multi-class data as single-class')
-    parser.add_argument('--optimizer', type=str, choices=['SGD', 'Adam', 'AdamW'], default='SGD', help='optimizer')
+    parser.add_argument('--optimizer', type=str, choices=['SGD', 'Adam', 'AdamW', 'AdaBound'], default='SGD', help='optimizer')
     parser.add_argument('--sync-bn', action='store_true', help='use SyncBatchNorm, only available in DDP mode')
     parser.add_argument('--workers', type=int, default=8, help='max dataloader workers (per RANK in DDP mode)')
     parser.add_argument('--project', default=ROOT / 'runs/train', help='save to project/name')
