@@ -11,8 +11,13 @@ NUM_OF_CLASS = 2
 def cal_gnn_loss(cls_preds, cell_preds, gnn_truths, device):
     result = torch.tensor(0, dtype=torch.float, requires_grad=True).to(device)
 
+    total_cell_truth_count = 0
+
     for cls_pred, cell_pred, cell_truth, cls_truth in zip(
             cls_preds, cell_preds, *zip(*gnn_truths)):
+
+        cell_truth_count = cell_truth.shape[0]
+        total_cell_truth_count += cell_truth_count
 
         loss = torch.tensor(1).to(device)
 
@@ -40,7 +45,10 @@ def cal_gnn_loss(cls_preds, cell_preds, gnn_truths, device):
                 loss = cal_loss_by_cls(
                     x, y, cls_truth_count, device)
 
-        result += loss
+
+        result += loss * cell_truth_count
+
+    result /= total_cell_truth_count
 
     return result.unsqueeze(-1)
 
