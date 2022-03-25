@@ -1,11 +1,13 @@
-import torch
 import math
+
+import torch
 import torch.nn.functional as F
 import torch.nn as nn
 
+from .config import NUM_OF_CLASS
+
 
 IOU_THRES = 0.6
-NUM_OF_CLASS = 2
 
 
 def cal_gnn_loss(cls_preds, cell_preds, gnn_truths, device):
@@ -44,7 +46,6 @@ def cal_gnn_loss(cls_preds, cell_preds, gnn_truths, device):
 
                 loss = cal_loss_by_cls(
                     x, y, cls_truth_count, device)
-
 
         result += loss * cell_truth_count
 
@@ -102,7 +103,9 @@ def match_predicted_cells_with_truths(cell_pred, cell_truth, device):
         torch.arange(iou_max.values.shape[0]).to(device)
     ), dim=-1)
 
-    truth_indices = truth_indices[truth_indices[:, 0] > IOU_THRES][:, 1].long()
+    truth_indices = truth_indices[
+        truth_indices[:, 0] >
+        IOU_THRES][:, 1].long()
     pred_indices = iou_max.indices[truth_indices]
 
     return pred_indices, truth_indices

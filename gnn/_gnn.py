@@ -1,47 +1,48 @@
 from typing import List, Tuple, Optional
+
 import torch
 import torch.nn as nn
 from torch import Tensor
 
+from .config import NUM_OF_CLASS, IMAGE_FEATURE_OUTPUT_SIZE
 
-NUM_OF_CLASS = 2
+
 NEAREST_K = 8
+INPUT_SIZE = IMAGE_FEATURE_OUTPUT_SIZE + 4
+EDGE_OUTPUT_SIZE = 32
+FEATURE_SIZE = INPUT_SIZE * 2 + EDGE_OUTPUT_SIZE * 4
+LINEAR_EMBEDDING = 32
 
-input_size = 2 + 4
-edge_output_size = 32
-feature_size = input_size * 2 + edge_output_size * 4
-linear_embedding = 32
 
-
-class Model(nn.Module):
+class _GNN(nn.Module):
     def __init__(self):
-        super(Model, self).__init__()
+        super(_GNN, self).__init__()
 
-        self.input_size = input_size
+        self.INPUT_SIZE = INPUT_SIZE
         self.k = NEAREST_K
 
-        self.bn = nn.BatchNorm1d(input_size)
+        self.bn = nn.BatchNorm1d(INPUT_SIZE)
 
         self.linear = nn.Sequential(
-            nn.BatchNorm1d(feature_size),
-            nn.Linear(feature_size, linear_embedding),
+            nn.BatchNorm1d(FEATURE_SIZE),
+            nn.Linear(FEATURE_SIZE, LINEAR_EMBEDDING),
             nn.LeakyReLU(),
-            nn.Linear(linear_embedding, linear_embedding),
+            nn.Linear(LINEAR_EMBEDDING, LINEAR_EMBEDDING),
             nn.LeakyReLU(),
-            nn.Linear(linear_embedding, NUM_OF_CLASS),
+            nn.Linear(LINEAR_EMBEDDING, NUM_OF_CLASS),
         )
 
         self.edge_conv1 = nn.Sequential(
-            nn.Linear(self.input_size * self.k, edge_output_size),
+            nn.Linear(self.INPUT_SIZE * self.k, EDGE_OUTPUT_SIZE),
             nn.LeakyReLU(),
-            nn.Linear(edge_output_size, edge_output_size),
+            nn.Linear(EDGE_OUTPUT_SIZE, EDGE_OUTPUT_SIZE),
             nn.LeakyReLU(),
         )
 
         self.edge_conv2 = nn.Sequential(
-            nn.Linear(edge_output_size * self.k, edge_output_size),
+            nn.Linear(EDGE_OUTPUT_SIZE * self.k, EDGE_OUTPUT_SIZE),
             nn.LeakyReLU(),
-            nn.Linear(edge_output_size, edge_output_size),
+            nn.Linear(EDGE_OUTPUT_SIZE, EDGE_OUTPUT_SIZE),
             nn.LeakyReLU(),
         )
 

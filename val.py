@@ -45,7 +45,7 @@ from utils.general import (LOGGER, box_iou, check_dataset, check_img_size, check
 from utils.metrics import ConfusionMatrix, ap_per_class
 from utils.plots import output_to_target, plot_images, plot_val_study
 from utils.torch_utils import select_device, time_sync
-from models.gnn.val import get_confusion_matrix, compute_confusion_matrix_scores
+from gnn.val import get_confusion_matrix, compute_confusion_matrix_scores
 
 
 def save_one_txt(predn, save_conf, shape, file):

@@ -1,17 +1,14 @@
 import torch
 import torch.nn as nn
-from utils.general import non_max_suppression
 from torchvision.ops import RoIAlign
 
-from utils.general import scale_coords
+from utils.general import scale_coords, non_max_suppression
 
-from .model import Model
+from ._gnn import _GNN
+from .config import IMAGE_FEATURE_OUTPUT_SIZE
 
 CONF_THRES = 0.25
-CELL_SIZE_LIMIT = 200
 IOU_THRES = 0.45
-
-conv_output_size = 2
 
 
 class GNN(nn.Module):
@@ -28,13 +25,13 @@ class GNN(nn.Module):
             (1), spatial_scale=1 / 64, sampling_ratio=-1)
 
         self.conv = nn.Sequential(
-            nn.Linear(1920, conv_output_size),
+            nn.Linear(1920, IMAGE_FEATURE_OUTPUT_SIZE),
             nn.LeakyReLU(),
-            nn.Linear(conv_output_size, conv_output_size),
+            nn.Linear(IMAGE_FEATURE_OUTPUT_SIZE, IMAGE_FEATURE_OUTPUT_SIZE),
             nn.LeakyReLU(),
         )
 
-        self.m = Model()
+        self.m = _GNN()
 
     def forward(self, x, shapes):
         # print(x[1].shape)  # batch, ch, h, w

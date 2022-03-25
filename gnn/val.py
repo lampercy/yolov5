@@ -1,13 +1,13 @@
 import statistics
 from collections import defaultdict
-from models.gnn.loss import (
-    match_predicted_cells_with_truths,
-    filter_tri_matrix_by_indices,
-)
 
 import torch
 
-NUM_OF_CLASS = 2
+from .loss import (
+    match_predicted_cells_with_truths,
+    filter_tri_matrix_by_indices,
+)
+from .config import NUM_OF_CLASS
 
 
 def get_confusion_matrix(

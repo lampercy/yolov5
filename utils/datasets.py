@@ -30,7 +30,7 @@ from utils.augmentations import Albumentations, augment_hsv, copy_paste, letterb
 from utils.general import (LOGGER, NUM_THREADS, check_dataset, check_requirements, check_yaml, clean_str,
                            segments2boxes, xyn2xy, xywh2xyxy, xywhn2xyxy, xyxy2xywhn)
 from utils.torch_utils import torch_distributed_zero_first
-from models.gnn.data import get_gnn_label
+from gnn.data import get_gnn_label
 
 # Parameters
 HELP_URL = 'https://github.com/ultralytics/yolov5/wiki/Train-Custom-Data'

@@ -23,7 +23,7 @@ from utils.autoanchor import check_anchor_order
 from utils.general import LOGGER, check_version, check_yaml, make_divisible, print_args
 from utils.plots import feature_visualization
 from utils.torch_utils import fuse_conv_and_bn, initialize_weights, model_info, scale_img, select_device, time_sync
-from models.gnn import GNN
+from gnn.model import GNN
 
 try:
     import thop  # for FLOPs computation
