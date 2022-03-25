@@ -1,6 +1,5 @@
 import torch
 import math
-from itertools import combinations
 import torch.nn.functional as F
 import torch.nn as nn
 
@@ -63,21 +62,9 @@ def cal_loss_by_cls(x, y, cls_truth_count, device):
 
 def filter_tri_matrix_by_indices(x, matrix, device):
     n = int((math.sqrt(matrix.shape[0] * 8 + 1) + 1) / 2)
-
-    def convert_index(i, j):
-        if i == j:
-            return torch.zeros((matrix.shape[-1])).to(device)
-        a = min(i, j)
-        b = max(i, j)
-
-        index = sum(range(n - a, n)) + b - a - 1
-        return matrix[index]
-
-    result = torch.stack(
-        [convert_index(i, j) for i, j in combinations(x, 2)],
-        dim=0,
-    )
-
+    i = torch.combinations(x).sort(dim=-1).values
+    i = ((n * 2 - i[:, 0] - 1) * i[:, 0] / 2 + i[:, 1] - i[:, 0] - 1).long()
+    result = matrix[i]
     return result
 
 
