@@ -45,7 +45,7 @@ from utils.general import (LOGGER, box_iou, check_dataset, check_img_size, check
 from utils.metrics import ConfusionMatrix, ap_per_class
 from utils.plots import output_to_target, plot_images, plot_val_study
 from utils.torch_utils import select_device, time_sync
-from gnn.val import get_confusion_matrix, compute_confusion_matrix_scores
+from gnn.val import GNNConfusionMatrix
 
 
 def save_one_txt(predn, save_conf, shape, file):
@@ -180,7 +180,7 @@ def run(data,
     jdict, stats, ap, ap_class = [], [], [], []
     pbar = tqdm(dataloader, desc=s, bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')  # progress bar
 
-    confusion_matrix_gnn = defaultdict(lambda: defaultdict(float))
+    gnn_confusion_matrix = GNNConfusionMatrix(device=device)
 
     for batch_i, (im, targets, gnn_targets, paths, shapes) in enumerate(pbar):
         t1 = time_sync()
@@ -248,8 +248,11 @@ def run(data,
                 save_one_json(predn, jdict, path, class_map)  # append to COCO-JSON dictionary
             callbacks.run('on_val_image_end', pred, predn, path, names, im[si])
 
-        confusion_matrix_gnn = get_confusion_matrix(
-            gnn_pred, gnn_cells, gnn_targets, confusion_matrix_gnn)
+        gnn_confusion_matrix.append(
+            gnn_pred,
+            gnn_cells,
+            gnn_targets
+        )
 
         # Plot images
         if plots and batch_i < 3:
@@ -258,7 +261,7 @@ def run(data,
             f = save_dir / f'val_batch{batch_i}_pred.jpg'  # predictions
             Thread(target=plot_images, args=(im, output_to_target(out), paths, f, names), daemon=True).start()
 
-    print(compute_confusion_matrix_scores(confusion_matrix_gnn))
+    gnn_confusion_matrix.compute_scores()
 
     # Compute metrics
     stats = [np.concatenate(x, 0) for x in zip(*stats)]  # to numpy
@@ -324,7 +327,7 @@ def run(data,
     maps = np.zeros(nc) + map
     for i, c in enumerate(ap_class):
         maps[c] = ap[i]
-    return (mp, mr, map50, map, *(loss.cpu() / len(dataloader)).tolist()), maps, t
+    return (mp, mr, map50, map, *(loss.cpu() / len(dataloader)).tolist()), maps, t, gnn_confusion_matrix
 
 
 def parse_opt():
