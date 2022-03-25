@@ -9,50 +9,55 @@ IOU_THRES = 0.6
 NUM_OF_CLASS = 2
 
 
-def cal_gnn_loss(preds, predicted_cells, gnn_targets, device):
+def cal_gnn_loss(cls_preds, cell_preds, gnn_truths, device):
     result = torch.tensor(0, dtype=torch.float, requires_grad=True).to(device)
 
-    for pred, cells, gnn_target in zip(preds, predicted_cells, gnn_targets):
-        cell_label, cls_label = gnn_target
-        cls_label_count = cls_label.shape[0]
+    for cls_pred, cell_pred, cell_truth, cls_truth in zip(
+            cls_preds, cell_preds, *zip(*gnn_truths)):
+
         loss = torch.tensor(1).to(device)
-        if pred is not None:
-            cell_label = cell_label.to(device)
-            cls_label = torch.stack(
-                (cls_label == 1, cls_label == 2), dim=-1).float().to(device)
 
-            cell_indices, label_indices = match_predicted_cells_with_targets(
-                cells, cell_label, device
-            )
+        if cls_pred is not None:
+            cls_truth_count = cls_truth.shape[0]
 
-            if cell_indices.shape[0] > 1 and label_indices.shape[0] > 1:
+            cell_truth = cell_truth.to(device)
+            cls_truth = torch.stack(
+                (cls_truth == 1, cls_truth == 2), dim=-1).float().to(device)
+
+            cell_pred_indices, cell_truth_indices = \
+                match_predicted_cells_with_truths(
+                    cell_pred, cell_truth, device
+                )
+
+            if cell_pred_indices.shape[0] > 1 and \
+                    cell_truth_indices.shape[0] > 1:
+
+                x = filter_tri_matrix_by_indices(
+                    cell_pred_indices, cls_pred, device)
+
+                y = filter_tri_matrix_by_indices(
+                    cell_truth_indices, cls_truth, device)
+
                 loss = cal_loss_by_cls(
-                    cell_indices, label_indices,
-                    cls_label, pred, device, cls_label_count)
+                    x, y, cls_truth_count, device)
 
         result += loss
 
     return result.unsqueeze(-1)
 
 
-def cal_loss_by_cls(
-        cell_indices, label_indices, cls_label, pred, device, cls_label_count):
+def cal_loss_by_cls(x, y, cls_truth_count, device):
     loss = nn.BCEWithLogitsLoss(reduction='none')
 
-    x = filter_tri_matrix_by_indices(
-        cell_indices, pred, device)
-    y = filter_tri_matrix_by_indices(
-        label_indices, cls_label, device)
-
     pred_count = x.shape[0]
-    remaining_count = cls_label_count - pred_count
+    remaining_count = cls_truth_count - pred_count
 
     loss_by_cls = loss(x, y).sum() / NUM_OF_CLASS
 
     remaining_loss = torch.tensor(1).to(device) \
         * remaining_count
 
-    result = (loss_by_cls + remaining_loss) / cls_label_count
+    result = (loss_by_cls + remaining_loss) / cls_truth_count
     return result
 
 
@@ -76,12 +81,12 @@ def filter_tri_matrix_by_indices(x, matrix, device):
     return result
 
 
-def match_predicted_cells_with_targets(cells, cell_label, device):
-    cell_label_expanded = cell_label.unsqueeze(-2).repeat(
-        1, cells.shape[0], 1)
+def match_predicted_cells_with_truths(cell_pred, cell_truth, device):
+    cell_label_expanded = cell_truth.unsqueeze(-2).repeat(
+        1, cell_pred.shape[0], 1)
 
-    cells_expanded = cells.unsqueeze(0).repeat(
-        cell_label.shape[0], 1, 1)
+    cells_expanded = cell_pred.unsqueeze(0).repeat(
+        cell_truth.shape[0], 1, 1)
     combined = torch.cat((cell_label_expanded, cells_expanded), dim=-1)
     label_area = find_area(combined[..., :4])
     cell_label_area = find_area(combined[..., 4:])
@@ -97,15 +102,15 @@ def match_predicted_cells_with_targets(cells, cell_label, device):
 
     iou_max = iou.max(dim=-1)
 
-    label_indices = torch.stack((
+    truth_indices = torch.stack((
         iou_max.values,
         torch.arange(iou_max.values.shape[0]).to(device)
     ), dim=-1)
 
-    label_indices = label_indices[label_indices[:, 0] > IOU_THRES][:, 1].long()
-    cell_indices = iou_max.indices[label_indices]
+    truth_indices = truth_indices[truth_indices[:, 0] > IOU_THRES][:, 1].long()
+    pred_indices = iou_max.indices[truth_indices]
 
-    return cell_indices, label_indices
+    return pred_indices, truth_indices
 
 
 def find_area(cell):

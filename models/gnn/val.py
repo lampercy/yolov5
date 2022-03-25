@@ -1,7 +1,7 @@
 import statistics
 from collections import defaultdict
 from models.gnn.loss import (
-    match_predicted_cells_with_targets,
+    match_predicted_cells_with_truths,
     filter_tri_matrix_by_indices,
 )
 
@@ -27,7 +27,7 @@ def get_confusion_matrix(
             cls_label = torch.stack(
                 (cls_label == 1, cls_label == 2), dim=-1).float().to(device)
 
-            cell_indices, label_indices = match_predicted_cells_with_targets(
+            cell_indices, label_indices = match_predicted_cells_with_truths(
                 cells, cell_label, device
             )
 
