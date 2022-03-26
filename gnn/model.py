@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torchvision.ops import RoIAlign
+import numpy as np
 
 from utils.general import scale_coords, non_max_suppression
 
@@ -9,6 +10,9 @@ from .config import IMAGE_FEATURE_OUTPUT_SIZE
 
 CONF_THRES = 0.1
 IOU_THRES = 0.6
+ROI_ALIGN_SHAPE = (12, 12)
+CONV_INPUT_SIZE = np.prod(ROI_ALIGN_SHAPE) * 1920
+USE_IMAGE_FEATURE = True
 
 
 class GNN(nn.Module):
@@ -16,16 +20,16 @@ class GNN(nn.Module):
     def __init__(self):
         super().__init__()
         self.roi_align_1 = RoIAlign(
-            (1), spatial_scale=1 / 8, sampling_ratio=-1)
+            ROI_ALIGN_SHAPE, spatial_scale=1 / 8, sampling_ratio=-1)
         self.roi_align_2 = RoIAlign(
-            (1), spatial_scale=1 / 16, sampling_ratio=-1)
+            ROI_ALIGN_SHAPE, spatial_scale=1 / 16, sampling_ratio=-1)
         self.roi_align_3 = RoIAlign(
-            (1), spatial_scale=1 / 32, sampling_ratio=-1)
+            ROI_ALIGN_SHAPE, spatial_scale=1 / 32, sampling_ratio=-1)
         self.roi_align_4 = RoIAlign(
-            (1), spatial_scale=1 / 64, sampling_ratio=-1)
+            ROI_ALIGN_SHAPE, spatial_scale=1 / 64, sampling_ratio=-1)
 
         self.conv = nn.Sequential(
-            nn.Linear(1920, IMAGE_FEATURE_OUTPUT_SIZE),
+            nn.Linear(CONV_INPUT_SIZE, IMAGE_FEATURE_OUTPUT_SIZE),
             nn.LeakyReLU(),
             nn.Linear(IMAGE_FEATURE_OUTPUT_SIZE, IMAGE_FEATURE_OUTPUT_SIZE),
             nn.LeakyReLU(),
@@ -60,14 +64,16 @@ class GNN(nn.Module):
             for i, p in enumerate(preds):
                 if p.shape[0] > 2:
                     bbox = p[:, :4].clone()
-                    f1 = self.roi_align_1(x[1].float(), [bbox])
-                    f2 = self.roi_align_2(x[2].float(), [bbox])
-                    f3 = self.roi_align_3(x[3].float(), [bbox])
-                    f4 = self.roi_align_4(x[4].float(), [bbox])
-                    f = torch.cat((f1, f2, f3, f4), dim=1)
-                    f = f.reshape(
-                            f.shape[0], f.shape[1] * f.shape[2] * f.shape[3])
-                    f = self.conv(f)
+
+                    if USE_IMAGE_FEATURE:
+                        f1 = self.roi_align_1(x[1].float(), [bbox])
+                        f2 = self.roi_align_2(x[2].float(), [bbox])
+                        f3 = self.roi_align_3(x[3].float(), [bbox])
+                        f4 = self.roi_align_4(x[4].float(), [bbox])
+                        f = torch.cat((f1, f2, f3, f4), dim=1)
+                        f = f.reshape(
+                                f.shape[0], f.shape[1] * f.shape[2] * f.shape[3])
+                        f = self.conv(f)
 
                     if shapes is not None:
                         scale_coords(
@@ -76,7 +82,11 @@ class GNN(nn.Module):
                         bbox = bbox / torch.tensor(
                             shapes[i][0]).to(device)[[1, 0, 1, 0]]
 
-                    f = torch.cat((bbox, f), dim=-1)
+                    if USE_IMAGE_FEATURE :
+                        f = torch.cat((bbox, f), dim=-1)
+                    else:
+                        f = bbox
+
                     feats.append(f)
                 else:
                     feats.append(None)
