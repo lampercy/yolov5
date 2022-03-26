@@ -7,8 +7,8 @@ from utils.general import scale_coords, non_max_suppression
 from ._gnn import _GNN
 from .config import IMAGE_FEATURE_OUTPUT_SIZE
 
-CONF_THRES = 0.25
-IOU_THRES = 0.45
+CONF_THRES = 0.1
+IOU_THRES = 0.6
 
 
 class GNN(nn.Module):
