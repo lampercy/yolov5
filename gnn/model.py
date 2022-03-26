@@ -6,13 +6,12 @@ import numpy as np
 from utils.general import scale_coords, non_max_suppression
 
 from ._gnn import _GNN
-from .config import IMAGE_FEATURE_OUTPUT_SIZE
+from .config import IMAGE_FEATURE_OUTPUT_SIZE, USE_IMAGE_FEATURE
 
 CONF_THRES = 0.1
 IOU_THRES = 0.6
 ROI_ALIGN_SHAPE = (12, 12)
 CONV_INPUT_SIZE = np.prod(ROI_ALIGN_SHAPE) * 1920
-USE_IMAGE_FEATURE = True
 
 
 class GNN(nn.Module):
@@ -72,7 +71,11 @@ class GNN(nn.Module):
                         f4 = self.roi_align_4(x[4].float(), [bbox])
                         f = torch.cat((f1, f2, f3, f4), dim=1)
                         f = f.reshape(
-                                f.shape[0], f.shape[1] * f.shape[2] * f.shape[3])
+                                f.shape[0],
+                                f.shape[1] *
+                                f.shape[2] *
+                                f.shape[3]
+                            )
                         f = self.conv(f)
 
                     if shapes is not None:
@@ -82,7 +85,7 @@ class GNN(nn.Module):
                         bbox = bbox / torch.tensor(
                             shapes[i][0]).to(device)[[1, 0, 1, 0]]
 
-                    if USE_IMAGE_FEATURE :
+                    if USE_IMAGE_FEATURE:
                         f = torch.cat((bbox, f), dim=-1)
                     else:
                         f = bbox
