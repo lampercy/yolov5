@@ -10,7 +10,7 @@ from .config import IMAGE_FEATURE_OUTPUT_SIZE, USE_IMAGE_FEATURE
 
 CONF_THRES = 0.1
 IOU_THRES = 0.6
-ROI_ALIGN_SHAPE = (12, 12)
+ROI_ALIGN_SHAPE = (1)
 CONV_INPUT_SIZE = np.prod(ROI_ALIGN_SHAPE) * 1920
 
 
@@ -52,7 +52,7 @@ class GNN(nn.Module):
 
         if out is not None:
             preds = non_max_suppression(
-                out,
+                out.detach(),
                 conf_thres=CONF_THRES,
                 iou_thres=IOU_THRES,
                 multi_label=True,
