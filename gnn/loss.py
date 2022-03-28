@@ -30,6 +30,9 @@ def cal_gnn_loss(cls_preds, cell_preds, gnn_truths, device):
             cls_truth = torch.stack(
                 (cls_truth == 1, cls_truth == 2), dim=-1).float().to(device)
 
+            pos_indices, neg_indices = get_pos_and_neg_indices(cls_truth)
+            cls_truth_count = min(cls_truth.shape[0], pos_indices.shape[0] * 2)
+
             cell_pred_indices, cell_truth_indices = \
                 match_predicted_cells_with_truths(
                     cell_pred, cell_truth, device
@@ -54,18 +57,29 @@ def cal_gnn_loss(cls_preds, cell_preds, gnn_truths, device):
     return result.unsqueeze(-1)
 
 
+def get_pos_and_neg_indices(y):
+    pos_indices = ((y[:, 0] == 1) | (y[:, 1] == 1)).nonzero().squeeze(-1)
+    neg_indices = ((y[:, 0] == 0) & (y[:, 1] == 0)).nonzero().squeeze(-1)
+    return pos_indices, neg_indices
+
+
 def cal_loss_by_cls(x, y, cls_truth_count, device):
+
     loss = nn.BCEWithLogitsLoss(reduction='none')
+    pos_indices, neg_indices = get_pos_and_neg_indices(y)
 
-    pred_count = x.shape[0]
-    remaining_count = cls_truth_count - pred_count
+    pos_loss = loss(x[pos_indices], y[pos_indices]).sum()
+    neg_loss = loss(x[neg_indices], y[neg_indices]).sum(-1)\
+        .sort(descending=True).values[:pos_indices.size(0)].sum()
 
-    loss_by_cls = loss(x, y).sum() / NUM_OF_CLASS
-
+    pred_count = min(x.size(0), pos_indices.size(0) * 2)
     remaining_loss = torch.tensor(1).to(device) \
-        * remaining_count
+        * (cls_truth_count - pred_count)
 
-    result = (loss_by_cls + remaining_loss) / cls_truth_count
+    result = (
+        (pos_loss + neg_loss) / NUM_OF_CLASS + remaining_loss
+    ) / cls_truth_count
+
     return result
 
 
