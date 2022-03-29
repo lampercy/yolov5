@@ -8,6 +8,7 @@ from .config import NUM_OF_CLASS
 
 
 IOU_THRES = 0.6
+REBALANCE = False
 
 
 def cal_gnn_loss(cls_preds, cell_preds, gnn_truths, device):
@@ -31,7 +32,10 @@ def cal_gnn_loss(cls_preds, cell_preds, gnn_truths, device):
                 (cls_truth == 1, cls_truth == 2), dim=-1).float().to(device)
 
             pos_indices, neg_indices = get_pos_and_neg_indices(cls_truth)
-            cls_truth_count = min(cls_truth.shape[0], pos_indices.shape[0] * 2)
+            cls_truth_count = cls_truth.shape[0]
+            if REBALANCE:
+                cls_truth_count = min(
+                    cls_truth_count, pos_indices.shape[0] * 2)
 
             cell_pred_indices, cell_truth_indices = \
                 match_predicted_cells_with_truths(
@@ -68,16 +72,19 @@ def cal_loss_by_cls(x, y, cls_truth_count, device):
     loss = nn.BCEWithLogitsLoss(reduction='none')
     pos_indices, neg_indices = get_pos_and_neg_indices(y)
 
-    pos_loss = loss(x[pos_indices], y[pos_indices]).sum()
-    neg_loss = loss(x[neg_indices], y[neg_indices]).sum(-1)\
-        .sort(descending=True).values[:pos_indices.size(0)].sum()
+    pos_loss = loss(x[pos_indices], y[pos_indices])
+    neg_loss = loss(x[neg_indices], y[neg_indices])
 
-    pred_count = min(x.size(0), pos_indices.size(0) * 2)
+    if REBALANCE:
+        neg_loss = neg_loss.sum(-1).sort(
+            descending=True).values[:pos_indices.size(0)]
+
+    pred_count = pos_loss.size(0) + neg_loss.size(0)
     remaining_loss = torch.tensor(1).to(device) \
         * (cls_truth_count - pred_count)
 
     result = (
-        (pos_loss + neg_loss) / NUM_OF_CLASS + remaining_loss
+        (pos_loss.sum() + neg_loss.sum()) / NUM_OF_CLASS + remaining_loss
     ) / cls_truth_count
 
     return result
