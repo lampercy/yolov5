@@ -11,7 +11,7 @@ from .config import IMAGE_FEATURE_OUTPUT_SIZE, USE_IMAGE_FEATURE
 CONF_THRES = 0.1
 IOU_THRES = 0.6
 ROI_ALIGN_SHAPE = (1)
-CONV_INPUT_SIZE = np.prod(ROI_ALIGN_SHAPE) * 1920
+CONV_INPUT_SIZE = np.prod(ROI_ALIGN_SHAPE) * 1344
 
 
 class GNN(nn.Module):
@@ -24,8 +24,6 @@ class GNN(nn.Module):
             ROI_ALIGN_SHAPE, spatial_scale=1 / 16, sampling_ratio=-1)
         self.roi_align_3 = RoIAlign(
             ROI_ALIGN_SHAPE, spatial_scale=1 / 32, sampling_ratio=-1)
-        self.roi_align_4 = RoIAlign(
-            ROI_ALIGN_SHAPE, spatial_scale=1 / 64, sampling_ratio=-1)
 
         self.conv = nn.Sequential(
             nn.Linear(CONV_INPUT_SIZE, IMAGE_FEATURE_OUTPUT_SIZE),
@@ -68,8 +66,7 @@ class GNN(nn.Module):
                         f1 = self.roi_align_1(x[1].float(), [bbox])
                         f2 = self.roi_align_2(x[2].float(), [bbox])
                         f3 = self.roi_align_3(x[3].float(), [bbox])
-                        f4 = self.roi_align_4(x[4].float(), [bbox])
-                        f = torch.cat((f1, f2, f3, f4), dim=1)
+                        f = torch.cat((f1, f2, f3), dim=1)
                         f = f.reshape(
                                 f.shape[0],
                                 f.shape[1] *
