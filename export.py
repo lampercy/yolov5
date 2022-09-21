@@ -431,7 +431,8 @@ def run(data=ROOT / 'data/coco128.yaml',  # 'dataset.yaml path'
         topk_per_class=100,  # TF.js NMS: topk per class to keep
         topk_all=100,  # TF.js NMS: topk for all classes to keep
         iou_thres=0.45,  # TF.js NMS: IoU threshold
-        conf_thres=0.25  # TF.js NMS: confidence threshold
+        conf_thres=0.25,  # TF.js NMS: confidence threshold
+        export_gnn=False,
         ):
     t = time.time()
     include = [x.lower() for x in include]  # to lowercase
@@ -471,10 +472,25 @@ def run(data=ROOT / 'data/coco128.yaml',  # 'dataset.yaml path'
             if hasattr(m, 'forward_export'):
                 m.forward = m.forward_export  # assign custom forward (optional)
 
-    for _ in range(2):
-        y = model(im)  # dry runs
-    shape = tuple(y[0].shape)  # model output shape
-    LOGGER.info(f"\n{colorstr('PyTorch:')} starting from {file} with output shape {shape} ({file_size(file):.1f} MB)")
+    if export_gnn:
+        from gnn.export import prepare_img_data_for_export, export_gnn_onnx
+        im, shapes = prepare_img_data_for_export(imgsz[0])
+
+        for _ in range(2):
+            y = model(im, shapes)  # dry runs
+
+        export_gnn_onnx(model, file, opset, train, dynamic, simplify, imgsz[0])
+        jit = False
+        engine = False
+        onnx = False
+        xml = False
+        coreml = False
+    else:
+        for _ in range(2):
+            y = model(im)  # dry runs
+
+        shape = tuple(y[0].shape)  # model output shape
+        LOGGER.info(f"\n{colorstr('PyTorch:')} starting from {file} with output shape {shape} ({file_size(file):.1f} MB)")
 
     # Exports
     f = [''] * 10  # exported filenames
@@ -545,6 +561,7 @@ def parse_opt():
     parser.add_argument('--include', nargs='+',
                         default=['torchscript', 'onnx'],
                         help='torchscript, onnx, openvino, engine, coreml, saved_model, pb, tflite, edgetpu, tfjs')
+    parser.add_argument('--export_gnn', default=False, action='store_true', help='Export gnn model')
     opt = parser.parse_args()
     print_args(FILE.stem, opt)
     return opt

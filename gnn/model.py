@@ -53,7 +53,7 @@ class GNN(nn.Module):
                 out.detach(),
                 conf_thres=CONF_THRES,
                 iou_thres=IOU_THRES,
-                multi_label=True,
+                multi_label=False,
                 agnostic=False,
             )
 
