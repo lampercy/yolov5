@@ -473,13 +473,18 @@ def run(data=ROOT / 'data/coco128.yaml',  # 'dataset.yaml path'
                 m.forward = m.forward_export  # assign custom forward (optional)
 
     if export_gnn:
-        from gnn.export import prepare_img_data_for_export, export_gnn_onnx
+        from gnn.export import prepare_img_data_for_export, export_torchscript_gnn, export_gnn_onnx
         im, shapes = prepare_img_data_for_export(imgsz[0])
 
         for _ in range(2):
             y = model(im, shapes)  # dry runs
 
-        export_gnn_onnx(model, file, opset, train, dynamic, simplify, imgsz[0])
+        export_torchscript_gnn(model, file, imgsz[0])
+        # export_gnn_onnx(
+        #     model, file, opset, train, dynamic,
+        #     simplify, imgsz[0]
+        # )
+
         jit = False
         engine = False
         onnx = False

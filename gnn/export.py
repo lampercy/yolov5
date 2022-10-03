@@ -1,4 +1,5 @@
 import os
+import json
 
 import numpy as np
 import torch
@@ -90,9 +91,10 @@ def load_image_as_tensor(
         image, dx, dy, width, height, img0_size)
 
 
-def prepare_img_data_for_export(target_size):
-    img = PILImage.open(
-        os.path.join(os.path.dirname(__file__), 'sample-image-for-export.jpg'))
+def prepare_img_data_for_export(
+        target_size, img_src=os.path.join(
+            os.path.dirname(__file__), 'sample-image-for-export.jpg')):
+    img = PILImage.open(img_src)
 
     data = load_image_as_tensor(img, target_size)
 
@@ -100,19 +102,20 @@ def prepare_img_data_for_export(target_size):
 
     h, w = data.image.shape[1:]
     w0, h0 = data.img0_size
-    pad = [data.dy, data.dx]
-    shapes = [[[h0, w0], [[h / h0, w / w0], pad]]]
+    pad = torch.tensor([data.dy, data.dx])
+    shapes = [[torch.tensor([h0, w0]), [torch.tensor([h / h0, w / w0]), pad]]]
 
     return img, shapes
 
 
-def export_gnn_onnx(model, file, opset, train, dynamic, simplify, target_size, prefix=colorstr('ONNX:')):
+def export_gnn_onnx(
+        model, file, opset, train, dynamic,
+        simplify, target_size, prefix=colorstr('ONNX:')):
     # YOLOv5 ONNX export
     check_requirements(('onnx',))
     import onnx
 
     im, shapes = prepare_img_data_for_export(target_size)
-
 
     LOGGER.info(f'\n{prefix} starting export with onnx {onnx.__version__}...')
     f = file.with_suffix('.onnx')
@@ -120,7 +123,7 @@ def export_gnn_onnx(model, file, opset, train, dynamic, simplify, target_size, p
     torch.onnx.export(model, (im, shapes), f, verbose=False, opset_version=opset,
                       training=torch.onnx.TrainingMode.TRAINING if train else torch.onnx.TrainingMode.EVAL,
                       do_constant_folding=not train,
-                      input_names=['images'],
+                      input_names=['n0', 'n1', 'n2', 'n3', 'n4', 'n5', 'n6'],
                       output_names=['output'],
                       dynamic_axes={'images': {0: 'batch', 2: 'height', 3: 'width'},  # shape(1,3,640,640)
                                     'output': {0: 'batch', 1: 'anchors'}  # shape(1,25200,85)
@@ -146,5 +149,21 @@ def export_gnn_onnx(model, file, opset, train, dynamic, simplify, target_size, p
             onnx.save(model_onnx, f)
         except Exception as e:
             LOGGER.info(f'{prefix} simplifier failure: {e}')
+    LOGGER.info(f'{prefix} export success, saved as {f} ({file_size(f):.1f} MB)')
+    return f
+
+
+def export_torchscript_gnn(model, file, target_size, prefix=colorstr('TorchScript:')):
+    LOGGER.info(f'\n{prefix} starting export with torch {torch.__version__}...')
+    f = file.with_suffix('.torchscript')
+
+    im, shapes = prepare_img_data_for_export(target_size)
+
+    ts = torch.jit.trace(model, (im, [tuple(shape) for shape in shapes]), strict=False)
+
+    d = {"shape": im.shape, "stride": int(max(model.stride)), "names": model.names}
+    extra_files = {'config.txt': json.dumps(d)}  # torch._C.ExtraFilesMap()
+    ts.save(str(f), _extra_files=extra_files)
+
     LOGGER.info(f'{prefix} export success, saved as {f} ({file_size(f):.1f} MB)')
     return f

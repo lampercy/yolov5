@@ -97,6 +97,8 @@ def attempt_load(weights, map_location=None, inplace=True, fuse=True):
         ckpt = (ckpt.get('ema') or ckpt['model']).float()  # FP32 model
         model.append(ckpt.fuse().eval() if fuse else ckpt.eval())  # fused or un-fused model in eval mode
 
+    model[0].model[-1] = torch.jit.script(model[0].model[-1])
+
     # Compatibility updates
     for m in model.modules():
         t = type(m)

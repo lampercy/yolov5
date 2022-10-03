@@ -58,36 +58,41 @@ class _GNN(nn.Module):
 
         return results
 
-    def _forward(self, feat):
-        feat = [f for f in feat if f is not None]
-        if feat:
-            feat = self.batch_norm_feat(feat)
-            feat = [self.get_feature_combination(x) for x in feat]
+    def _forward(self, feat0: List[Tensor]):
+        feat1: List[Tensor] = []
+        for f in feat0:
+            if f is not None:
+                feat1.append(f)
 
-            feat = torch.cat(feat, 0)  # -> (b*n, p)
-            feat = self.linear(feat)
+        if feat1:
+            feat1 = self.batch_norm_feat(feat1)
+            feat1 = [self.get_feature_combination(x) for x in feat1]
 
-            return feat
+            feat2 = torch.cat(feat1, 0)  # -> (b*n, p)
+            feat2 = self.linear(feat2)
+
+            return feat2
 
     def forward(
         self,
         feat: List[Tensor],
-    ) -> List[Tuple[Optional[Tensor], Optional[Tensor]]]:
+    ) -> Tuple[List[Tensor], List[Tensor]]:
         x = self._forward(feat)
 
         cursor = 0
-        cells = []
-        preds = []
+        cells: List[Tensor] = []
+        preds: List[Tensor] = []
 
         for f in feat:
             if f is None or x is None:
-                cells.append(None)
-                preds.append(None)
+                pass
+                # cells.append(None)
+                # preds.append(None)
             else:
                 length = int(f.shape[0] * (f.shape[0] - 1) / 2)
                 y = x[cursor:cursor + length]
                 cursor += length
-                cells.append(f[:, :4])
+                cells.append(f[:, :5])
                 preds.append(y)
 
         return preds, cells

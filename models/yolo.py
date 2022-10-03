@@ -150,8 +150,8 @@ class Model(nn.Module):
                 x = y[m.f] if isinstance(m.f, int) else [x if j == -1 else y[j] for j in m.f]  # from earlier layers
             if profile:
                 self._profile_one_layer(m, x, dt)
-            if isinstance(m, GNN):
-                x = m(x, shapes)  # run
+            if self.model[-1] == m:
+                x = m(x[0][0], x[0][1], x[1], x[2], x[3], shapes)
             else:
                 x = m(x)  # run
             y.append(x if m.i in self.save else None)  # save output
