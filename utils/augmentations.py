@@ -29,7 +29,7 @@ class Albumentations:
             check_version(A.__version__, '1.0.3', hard=True)  # version requirement
 
             T = [
-                A.RandomResizedCrop(height=size, width=size, scale=(0.8, 1.0), ratio=(0.9, 1.11), p=0.0),
+                LetterBox(size),
                 A.Blur(p=0.01),
                 A.MedianBlur(p=0.01),
                 A.ToGray(p=0.01),
@@ -39,7 +39,7 @@ class Albumentations:
                 A.ImageCompression(quality_lower=75, p=0.0)]  # transforms
             self.transform = A.Compose(T, bbox_params=A.BboxParams(format='yolo', label_fields=['class_labels']))
 
-            LOGGER.info(prefix + ', '.join(f'{x}'.replace('always_apply=False, ', '') for x in T if x.p))
+            # LOGGER.info(prefix + ', '.join(f'{x}'.replace('always_apply=False, ', '') for x in T if x.p))
         except ImportError:  # package not installed, skip
             pass
         except Exception as e:
@@ -320,7 +320,7 @@ def classify_albumentations(
         from albumentations.pytorch import ToTensorV2
         check_version(A.__version__, '1.0.3', hard=True)  # version requirement
         if augment:  # Resize and crop
-            T = [A.RandomResizedCrop(height=size, width=size, scale=scale, ratio=ratio)]
+            T = [LetterBox(size)]
             if auto_aug:
                 # TODO: implement AugMix, AutoAug & RandAug in albumentation
                 LOGGER.info(f'{prefix}auto augmentations are currently not supported')
@@ -333,7 +333,7 @@ def classify_albumentations(
                     color_jitter = (float(jitter),) * 3  # repeat value for brightness, contrast, satuaration, 0 hue
                     T += [A.ColorJitter(*color_jitter, 0)]
         else:  # Use fixed crop for eval set (reproducibility)
-            T = [A.SmallestMaxSize(max_size=size), A.CenterCrop(height=size, width=size)]
+            T = [A.SmallestMaxSize(max_size=size), LetterBox(size)]
         T += [A.Normalize(mean=mean, std=std), ToTensorV2()]  # Normalize and convert to Tensor
         LOGGER.info(prefix + ', '.join(f'{x}'.replace('always_apply=False, ', '') for x in T if x.p))
         return A.Compose(T)
@@ -348,7 +348,7 @@ def classify_transforms(size=224):
     # Transforms to apply if albumentations not installed
     assert isinstance(size, int), f'ERROR: classify_transforms size {size} must be integer, not (list, tuple)'
     # T.Compose([T.ToTensor(), T.Resize(size), T.CenterCrop(size), T.Normalize(IMAGENET_MEAN, IMAGENET_STD)])
-    return T.Compose([CenterCrop(size), ToTensor(), T.Normalize(IMAGENET_MEAN, IMAGENET_STD)])
+    return T.Compose([LetterBox(size), ToTensor(), T.Normalize(IMAGENET_MEAN, IMAGENET_STD)])
 
 
 class LetterBox:
